@@ -139,7 +139,12 @@ putCString x = do
   putWord8 0
 
 getCString :: Get Text
-getCString = TE.decodeUtf8 . SC.concat . LC.toChunks <$> getLazyByteStringNul
+getCString = do
+  b <- SC.concat . LC.toChunks <$> getLazyByteStringNul
+  case TE.decodeUtf8' b of
+    Left err -> 
+      fail $ "Data.Bson.Binary.getCString: decodeUtf8 failed: " ++ show err
+    Right x -> return x
 
 putString :: Text -> Put
 putString x = let b = TE.encodeUtf8 x in do
@@ -152,7 +157,10 @@ getString = do
   len <- subtract 1 <$> getInt32
   b <- getByteString (fromIntegral len)
   getWord8
-  return $ TE.decodeUtf8 b
+  case TE.decodeUtf8' b of
+    Left err -> 
+      fail $ "Data.Bson.Binary.getString: decodeUtf8 failed: " ++ show err
+    Right x -> return x
 
 putDocument :: Document -> Put
 putDocument es = let b = runPut (mapM_ putField es) in do
